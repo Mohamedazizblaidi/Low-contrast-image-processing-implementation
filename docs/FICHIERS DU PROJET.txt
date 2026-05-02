@@ -1,0 +1,23 @@
+┌─────────────────────────────────────────────────────────────┐
+│                    FICHIERS DU PROJET                       │
+├──────────────────────────────┬──────────────────────────────┤
+│ Nom du fichier               │ Rôle                        │
+├──────────────────────────────┼──────────────────────────────┤
+│ agcwd_top.vhd                │ Top-level, pipeline complet  │
+│ channel_stats.vhd            │ Mean/Std, détection sombre   │
+│ histogram_engine.vhd         │ Histogramme 256 bins BRAM    │
+│ pdf_weighted.vhd             │ PDF pondérée AGCWD           │
+│ cdf_engine.vhd               │ CDF cumulative + LUT gamma   │
+│ gamma_lut_engine.vhd         │ Application LUT par canal    │
+│ bilateral_filter.vhd         │ Filtre bilatéral 5×5         │
+│ gray_world_balance.vhd       │ Balance des blancs           │
+│ unsharp_mask.vhd             │ Netteté (1.4x - 0.4*blur)   │
+│ blend_engine.vhd             │ Mélange original/amélioré    │
+│ agcwd_constraints.xdc        │ Timing + I/O Artix-7/Zynq    │
+└──────────────────────────────┴──────────────────────────────┘
+
+Pipeline FPGA :
+Input → [channel_stats] → [bilateral_filter] →
+[histogram_engine x3] → [pdf_weighted x3] →
+[cdf_engine x3] → [gamma_lut_engine] →
+[gray_world_balance] → [unsharp_mask] → Output

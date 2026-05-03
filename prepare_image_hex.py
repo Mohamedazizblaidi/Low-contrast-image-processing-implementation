@@ -4,7 +4,7 @@ from PIL import Image
 # ============================================================
 # INPUT IMAGE PATH
 # ============================================================
-INPUT_IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\Inputs\Sunbeams.jpg"
+INPUT_IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\Inputs\Green Leaf.jpg"
 
 # ============================================================
 # OUTPUT HEX PATH

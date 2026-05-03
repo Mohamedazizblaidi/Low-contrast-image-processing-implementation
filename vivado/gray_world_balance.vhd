@@ -1,11 +1,3 @@
--- =============================================================
--- File: gray_world_balance.vhd
--- Description: Gray-world white balance correction.
---   Computes per-channel mean over full frame, then
---   applies gains: gain_c = global_mean / mean_c
---   Two-pass: pass1=accumulate, pass2=apply (frame-delayed)
--- =============================================================
-
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -43,7 +35,8 @@ architecture rtl of gray_world_balance is
     signal acc_r          : unsigned(ACC_BITS-1 downto 0);
     signal acc_g          : unsigned(ACC_BITS-1 downto 0);
     signal acc_b          : unsigned(ACC_BITS-1 downto 0);
-    signal pix_count      : unsigned(19 downto 0);
+    signal pix_count      : unsigned(23 downto 0);
+    signal row_count      : integer range 0 to IMG_HEIGHT-1 := 0;
 
     -- Moyennes par canal (Q8.8)
     signal mean_r         : unsigned(15 downto 0);
@@ -57,20 +50,18 @@ architecture rtl of gray_world_balance is
     signal gain_b         : unsigned(15 downto 0);
     signal gains_ready    : std_logic := '0';
 
-    -- Canaux d'entrée
+    -- Canaux d'entree
     signal in_r           : unsigned(7 downto 0);
     signal in_g           : unsigned(7 downto 0);
     signal in_b           : unsigned(7 downto 0);
 
-    -- Sortie corrigée
+    -- Sortie corrigee
     signal out_r          : unsigned(7 downto 0);
     signal out_g          : unsigned(7 downto 0);
     signal out_b          : unsigned(7 downto 0);
 
-    -- Seuil différence de moyennes : > 30 → corriger
+    -- Seuil difference de moyennes : > 30 pour corriger
     constant MEAN_DIFF_THRESHOLD : unsigned(7 downto 0) := to_unsigned(30, 8);
-    signal mean_diff_max  : unsigned(7 downto 0);
-    signal mean_diff_min  : unsigned(7 downto 0);
     signal apply_balance  : std_logic := '0';
 
 begin
@@ -92,6 +83,7 @@ begin
             acc_g       <= (others => '0');
             acc_b       <= (others => '0');
             pix_count   <= (others => '0');
+            row_count   <= 0;
             gains_ready <= '0';
             apply_balance <= '0';
             gain_r      <= x"0100"; -- 1.0 en Q8.8
@@ -106,6 +98,7 @@ begin
                 acc_g     <= (others => '0');
                 acc_b     <= (others => '0');
                 pix_count <= (others => '0');
+                row_count <= 0;
             end if;
 
             if s_tvalid = '1' then
@@ -117,73 +110,81 @@ begin
 
             -- Fin de frame : calculer les gains
             if s_tlast = '1' and s_tvalid = '1' then
-                if pix_count > 0 then
-                    -- Moyennes Q8.8
-                    v_mean_r := resize(shift_left(acc_r, 8) / pix_count, 16);
-                    v_mean_g := resize(shift_left(acc_g, 8) / pix_count, 16);
-                    v_mean_b := resize(shift_left(acc_b, 8) / pix_count, 16);
+                
+                if row_count < IMG_HEIGHT-1 then
+                    row_count <= row_count + 1;
+                end if;
 
-                    mean_r <= v_mean_r;
-                    mean_g <= v_mean_g;
-                    mean_b <= v_mean_b;
+                -- Trigger calculation ONLY at the end of the last row
+                if row_count = IMG_HEIGHT - 1 then
+                    if pix_count > 0 then
+                        -- Moyennes Q8.8
+                        v_mean_r := resize(shift_left(acc_r, 8) / pix_count, 16);
+                        v_mean_g := resize(shift_left(acc_g, 8) / pix_count, 16);
+                        v_mean_b := resize(shift_left(acc_b, 8) / pix_count, 16);
 
-                    -- Moyenne globale Q8.8
-                    v_global := resize(v_mean_r, 18)
-                              + resize(v_mean_g, 18)
-                              + resize(v_mean_b, 18);
-                    global_mean <= resize(v_global / 3, 16);
+                        mean_r <= v_mean_r;
+                        mean_g <= v_mean_g;
+                        mean_b <= v_mean_b;
 
-                    -- Vérifier si correction nécessaire
-                    if v_mean_r >= v_mean_g and v_mean_r >= v_mean_b then
-                        v_max_m := v_mean_r;
-                    elsif v_mean_g >= v_mean_b then
-                        v_max_m := v_mean_g;
-                    else
-                        v_max_m := v_mean_b;
-                    end if;
+                        -- Moyenne globale Q8.8
+                        v_global := resize(v_mean_r, 18)
+                                  + resize(v_mean_g, 18)
+                                  + resize(v_mean_b, 18);
+                        global_mean <= resize(v_global / 3, 16);
 
-                    if v_mean_r <= v_mean_g and v_mean_r <= v_mean_b then
-                        v_min_m := v_mean_r;
-                    elsif v_mean_g <= v_mean_b then
-                        v_min_m := v_mean_g;
-                    else
-                        v_min_m := v_mean_b;
-                    end if;
-
-                    -- Différence en unités Q8.8→ entier pixels : décaler de 8
-                    if shift_right(v_max_m - v_min_m, 8) >
-                       resize(MEAN_DIFF_THRESHOLD, 16) then
-                        apply_balance <= '1';
-
-                        -- Gains Q8.8 : global_mean / mean_c
-                        if v_mean_r > 0 then
-                            gain_r <= resize(shift_left(
-                                resize(v_global/3, 32) / v_mean_r, 0), 16);
+                        -- Verifier si correction necessaire
+                        if v_mean_r >= v_mean_g and v_mean_r >= v_mean_b then
+                            v_max_m := v_mean_r;
+                        elsif v_mean_g >= v_mean_b then
+                            v_max_m := v_mean_g;
                         else
+                            v_max_m := v_mean_b;
+                        end if;
+
+                        if v_mean_r <= v_mean_g and v_mean_r <= v_mean_b then
+                            v_min_m := v_mean_r;
+                        elsif v_mean_g <= v_mean_b then
+                            v_min_m := v_mean_g;
+                        else
+                            v_min_m := v_mean_b;
+                        end if;
+
+                        -- Difference en unites Q8.8 -> entier pixels : decalage de 8
+                        if shift_right(v_max_m - v_min_m, 8) >
+                           resize(MEAN_DIFF_THRESHOLD, 16) then
+                            apply_balance <= '1';
+
+                            -- Gains Q8.8 : global_mean / mean_c
+                            if v_mean_r > 0 then
+                                gain_r <= resize(shift_left(
+                                    resize(v_global/3, 32) / v_mean_r, 0), 16);
+                            else
+                                gain_r <= x"0100";
+                            end if;
+
+                            if v_mean_g > 0 then
+                                gain_g <= resize(shift_left(
+                                    resize(v_global/3, 32) / v_mean_g, 0), 16);
+                            else
+                                gain_g <= x"0100";
+                            end if;
+
+                            if v_mean_b > 0 then
+                                gain_b <= resize(shift_left(
+                                    resize(v_global/3, 32) / v_mean_b, 0), 16);
+                            else
+                                gain_b <= x"0100";
+                            end if;
+                        else
+                            apply_balance <= '0';
                             gain_r <= x"0100";
-                        end if;
-
-                        if v_mean_g > 0 then
-                            gain_g <= resize(shift_left(
-                                resize(v_global/3, 32) / v_mean_g, 0), 16);
-                        else
                             gain_g <= x"0100";
-                        end if;
-
-                        if v_mean_b > 0 then
-                            gain_b <= resize(shift_left(
-                                resize(v_global/3, 32) / v_mean_b, 0), 16);
-                        else
                             gain_b <= x"0100";
                         end if;
-                    else
-                        apply_balance <= '0';
-                        gain_r <= x"0100";
-                        gain_g <= x"0100";
-                        gain_b <= x"0100";
-                    end if;
 
-                    gains_ready <= '1';
+                        gains_ready <= '1';
+                    end if;
                 end if;
             end if;
         end if;
@@ -210,7 +211,7 @@ begin
 
             if s_tvalid = '1' then
                 if enable = '1' and apply_balance = '1' then
-                    -- Appliquer gain Q8.8 et saturer à 255
+                    -- Appliquer gain Q8.8 et saturer a 255
                     v_r := resize(shift_right(in_r * gain_r, 8), 24);
                     v_g := resize(shift_right(in_g * gain_g, 8), 24);
                     v_b := resize(shift_right(in_b * gain_b, 8), 24);

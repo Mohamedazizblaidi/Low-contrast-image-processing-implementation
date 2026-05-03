@@ -1,31 +1,45 @@
 -- =============================================================
--- File : sim/tb_agcwd_top.vhd
--- Mettre dans : Simulation Sources → sim_1
--- Set as Top  : OUI (clic droit → Set as Top)
--- Description : Testbench complet pour agcwd_top
---               Envoie une frame 8x8 de pixels noirs/gris/blancs
+-- File: tb_agcwd_hex.vhd
+-- Testbench for AGCWD using hex pixel files
+-- Input format: one 24-bit RGB pixel per line as RRGGBB
+-- Example: 0A0B0C
+-- Compatible with Vivado 2018.2
 -- =============================================================
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use std.textio.all;
+use ieee.std_logic_textio.all;
 
-entity tb_agcwd_top is
--- Testbench : pas de ports
-end entity tb_agcwd_top;
+entity tb_agcwd_hex is
+end entity tb_agcwd_hex;
 
-architecture sim of tb_agcwd_top is
-
-    -- =========================================================
-    -- Paramètres de simulation
-    -- =========================================================
-    constant CLK_PERIOD  : time    := 10 ns;   -- 100 MHz
-    constant IMG_W       : integer := 8;
-    constant IMG_H       : integer := 8;
-    constant TOTAL_PIX   : integer := IMG_W * IMG_H;
+architecture sim of tb_agcwd_hex is
 
     -- =========================================================
-    -- Signaux DUT
+    -- Clock
+    -- =========================================================
+    constant CLK_PERIOD : time := 10 ns;
+
+    -- =========================================================
+    -- Image size
+    -- Change these values to match your test image
+    -- =========================================================
+    constant IMG_W : integer := 8;
+    constant IMG_H : integer := 8;
+
+    -- =========================================================
+    -- File paths
+    -- Modify if your project path is different
+    -- =========================================================
+    constant INPUT_FILE  : string :=
+        "C:/Users/ACER/Downloads/Mehdi agcwd/AGCWD CLASSIQUE/input_image.hex";
+    constant OUTPUT_FILE : string :=
+        "C:/Users/ACER/Downloads/Mehdi agcwd/AGCWD CLASSIQUE/output_image.hex";
+
+    -- =========================================================
+    -- DUT signals
     -- =========================================================
     signal clk             : std_logic := '0';
     signal rst_n           : std_logic := '0';
@@ -51,50 +65,54 @@ architecture sim of tb_agcwd_top is
     signal frame_bright    : std_logic;
 
     -- =========================================================
-    -- Image de test 8x8 (valeurs RGB)
-    -- Simule une image sombre avec faible contraste
+    -- Files
     -- =========================================================
-    type pixel_array_t is array(0 to TOTAL_PIX-1) of
-        std_logic_vector(23 downto 0);
+    file fin  : text open read_mode  is INPUT_FILE;
+    file fout : text open write_mode is OUTPUT_FILE;
 
-    -- Image sombre : valeurs entre 10 et 50
-    constant TEST_IMAGE : pixel_array_t := (
-        x"0A0B0C", x"0F1011", x"141516", x"191A1B",
-        x"1E1F20", x"232425", x"282930", x"2D2E2F",
-        x"0C0D0E", x"111213", x"161718", x"1B1C1D",
-        x"202122", x"252627", x"2A2B2C", x"2F3031",
-        x"0E0F10", x"131415", x"181920", x"1D1E1F",
-        x"222324", x"272829", x"2C2D2E", x"313233",
-        x"101112", x"151617", x"1A1B1C", x"1F2021",
-        x"242526", x"292A2B", x"2E2F30", x"333435",
-        x"121314", x"171819", x"1C1D1E", x"212223",
-        x"262728", x"2B2C2D", x"303132", x"353637",
-        x"141516", x"191A1B", x"1E1F20", x"232425",
-        x"282930", x"2D2E2F", x"323334", x"373839",
-        x"161718", x"1B1C1D", x"202122", x"252627",
-        x"2A2B2C", x"2F3031", x"343536", x"393A3B",
-        x"181920", x"1D1E1F", x"222324", x"272829",
-        x"2C2D2E", x"313233", x"363738", x"3B3C3D"
-    );
-
-    -- Résultats collectés
-    type result_array_t is array(0 to TOTAL_PIX-1) of
-        std_logic_vector(23 downto 0);
-    signal results        : result_array_t;
-    signal result_count   : integer := 0;
-    signal sim_done       : boolean := false;
+    -- =========================================================
+    -- Helper function: convert 24-bit std_logic_vector to hex string
+    -- =========================================================
+    function slv24_to_hex(s : std_logic_vector(23 downto 0)) return string is
+        variable result : string(1 to 6);
+        variable nibble : std_logic_vector(3 downto 0);
+    begin
+        for i in 0 to 5 loop
+            nibble := s(23 - i*4 downto 20 - i*4);
+            case nibble is
+                when "0000" => result(i+1) := '0';
+                when "0001" => result(i+1) := '1';
+                when "0010" => result(i+1) := '2';
+                when "0011" => result(i+1) := '3';
+                when "0100" => result(i+1) := '4';
+                when "0101" => result(i+1) := '5';
+                when "0110" => result(i+1) := '6';
+                when "0111" => result(i+1) := '7';
+                when "1000" => result(i+1) := '8';
+                when "1001" => result(i+1) := '9';
+                when "1010" => result(i+1) := 'A';
+                when "1011" => result(i+1) := 'B';
+                when "1100" => result(i+1) := 'C';
+                when "1101" => result(i+1) := 'D';
+                when "1110" => result(i+1) := 'E';
+                when others  => result(i+1) := 'F';
+            end case;
+        end loop;
+        return result;
+    end function;
 
 begin
 
     -- =========================================================
-    -- DUT : Device Under Test
+    -- DUT
+    -- IMPORTANT: agcwd_top has only these generics:
+    --   IMG_WIDTH, IMG_HEIGHT, ALPHA_VALUE
     -- =========================================================
     DUT : entity work.agcwd_top
         generic map (
             IMG_WIDTH   => IMG_W,
             IMG_HEIGHT  => IMG_H,
-            DATA_WIDTH  => 8,
-            ALPHA_VALUE => 128  -- alpha = 0.5
+            ALPHA_VALUE => 128
         )
         port map (
             clk             => clk,
@@ -118,7 +136,7 @@ begin
         );
 
     -- =========================================================
-    -- Génération horloge
+    -- Clock generation
     -- =========================================================
     p_clk : process
     begin
@@ -126,196 +144,105 @@ begin
         wait for CLK_PERIOD / 2;
         clk <= '1';
         wait for CLK_PERIOD / 2;
-        if sim_done then
-            wait;
-        end if;
     end process p_clk;
 
     -- =========================================================
-    -- Stimulus principal
+    -- Stimulus: read input file and send pixels
     -- =========================================================
-    p_stimulus : process
-        procedure send_frame(
-            constant image : in pixel_array_t;
-            constant width : in integer;
-            constant height: in integer
-        ) is
-            variable idx   : integer := 0;
-            variable col   : integer := 0;
-        begin
-            report "=== Envoi frame de test ===" severity note;
-
-            for row in 0 to height-1 loop
-                for c in 0 to width-1 loop
-
-                    -- SOF sur premier pixel
-                    if row = 0 and c = 0 then
-                        s_axis_tuser <= '1';
-                    else
-                        s_axis_tuser <= '0';
-                    end if;
-
-                    -- EOL sur dernier pixel de chaque ligne
-                    if c = width-1 then
-                        s_axis_tlast <= '1';
-                    else
-                        s_axis_tlast <= '0';
-                    end if;
-
-                    s_axis_tdata  <= image(idx);
-                    s_axis_tvalid <= '1';
-
-                    wait until rising_edge(clk);
-
-                    s_axis_tvalid <= '0';
-                    s_axis_tuser  <= '0';
-                    s_axis_tlast  <= '0';
-
-                    -- Gap inter-pixels (réaliste)
-                    wait until rising_edge(clk);
-
-                    idx := idx + 1;
-                end loop;
-            end loop;
-
-            report "=== Frame envoyée ===" severity note;
-        end procedure send_frame;
-
+    p_stim : process
+        variable L       : line;
+        variable pix_hex : std_logic_vector(23 downto 0);
+        variable pix_id  : integer := 0;
     begin
         -- Reset
-        rst_n          <= '0';
-        s_axis_tvalid  <= '0';
-        s_axis_tdata   <= (others => '0');
-        s_axis_tlast   <= '0';
-        s_axis_tuser   <= '0';
-
+        rst_n <= '0';
         wait for 5 * CLK_PERIOD;
         rst_n <= '1';
-        wait for 3 * CLK_PERIOD;
+        wait for 5 * CLK_PERIOD;
 
-        -- =====================================================
-        -- Test 1 : Image sombre (dark frame)
-        -- =====================================================
-        report "--- TEST 1 : Image sombre ---" severity note;
-        enable_denoise <= '1';
-        enable_sharpen <= '1';
-        enable_balance <= '1';
-        send_frame(TEST_IMAGE, IMG_W, IMG_H);
+        report "Reading input_image.hex..." severity note;
 
-        wait for 50 * CLK_PERIOD;
+        while not endfile(fin) loop
+            readline(fin, L);
+            hread(L, pix_hex);
 
-        -- =====================================================
-        -- Test 2 : Sans débruitage ni netteté
-        -- =====================================================
-        report "--- TEST 2 : Flags désactivés ---" severity note;
-        enable_denoise <= '0';
-        enable_sharpen <= '0';
-        enable_balance <= '0';
-        send_frame(TEST_IMAGE, IMG_W, IMG_H);
+            -- First pixel of frame
+            if pix_id = 0 then
+                s_axis_tuser <= '1';
+            else
+                s_axis_tuser <= '0';
+            end if;
 
-        wait for 50 * CLK_PERIOD;
-
-        -- =====================================================
-        -- Test 3 : Image blanche (bright frame)
-        -- =====================================================
-        report "--- TEST 3 : Image claire ---" severity note;
-        enable_denoise <= '1';
-        enable_sharpen <= '0';
-        enable_balance <= '1';
-
-        -- Envoyer une image très claire
-        for i in 0 to TOTAL_PIX-1 loop
-            if i = 0 then s_axis_tuser <= '1'; else s_axis_tuser <= '0'; end if;
-            if (i mod IMG_W) = IMG_W-1 then
+            -- End of line
+            if (pix_id mod IMG_W) = IMG_W - 1 then
                 s_axis_tlast <= '1';
             else
                 s_axis_tlast <= '0';
             end if;
-            s_axis_tdata  <= x"F5F5F5"; -- Pixel clair
+
+            s_axis_tdata  <= pix_hex;
             s_axis_tvalid <= '1';
+
             wait until rising_edge(clk);
+
             s_axis_tvalid <= '0';
+            s_axis_tuser  <= '0';
+            s_axis_tlast  <= '0';
+
             wait until rising_edge(clk);
+
+            pix_id := pix_id + 1;
         end loop;
 
-        wait for 100 * CLK_PERIOD;
+        report "All input pixels sent." severity note;
 
-        report "=== SIMULATION TERMINEE ===" severity note;
-        sim_done <= true;
+        -- Wait for pipeline to flush
+        wait for 5 us;
+
+        report "End of simulation." severity note;
         wait;
-    end process p_stimulus;
+    end process p_stim;
 
     -- =========================================================
-    -- Collecte des résultats de sortie
+    -- Capture output into output_image.hex
     -- =========================================================
-    p_collect : process(clk)
+    p_capture : process(clk)
+        variable Lout      : line;
+        variable out_count : integer := 0;
     begin
         if rising_edge(clk) then
-            if m_axis_tvalid = '1' and m_axis_tready = '1' then
-                if result_count < TOTAL_PIX then
-                    results(result_count) <= m_axis_tdata;
-                    result_count <= result_count + 1;
+            if m_axis_tvalid = '1' then
+                hwrite(Lout, m_axis_tdata);
+                writeline(fout, Lout);
 
-                    report "Pixel sortie [" &
-                        integer'image(result_count) & "] = R:" &
-                        integer'image(to_integer(unsigned(
-                            m_axis_tdata(23 downto 16)))) &
-                        " G:" &
-                        integer'image(to_integer(unsigned(
-                            m_axis_tdata(15 downto 8)))) &
-                        " B:" &
-                        integer'image(to_integer(unsigned(
-                            m_axis_tdata(7 downto 0))))
-                        severity note;
-                end if;
+                out_count := out_count + 1;
+
+                report "OUT[" & integer'image(out_count) & "] = " &
+                       slv24_to_hex(m_axis_tdata)
+                       severity note;
             end if;
         end if;
-    end process p_collect;
+    end process p_capture;
 
     -- =========================================================
-    -- Vérifications automatiques (assertions)
+    -- Optional checks
     -- =========================================================
     p_check : process(clk)
     begin
         if rising_edge(clk) then
             if m_axis_tvalid = '1' then
-                -- Vérifier que la sortie est dans [0, 255]
                 assert to_integer(unsigned(m_axis_tdata(23 downto 16))) <= 255
-                    report "ERREUR: Canal R hors plage !"
-                    severity error;
-
+                    report "ERROR: R out of range" severity error;
                 assert to_integer(unsigned(m_axis_tdata(15 downto 8))) <= 255
-                    report "ERREUR: Canal G hors plage !"
-                    severity error;
-
+                    report "ERROR: G out of range" severity error;
                 assert to_integer(unsigned(m_axis_tdata(7 downto 0))) <= 255
-                    report "ERREUR: Canal B hors plage !"
-                    severity error;
+                    report "ERROR: B out of range" severity error;
             end if;
 
-            -- Vérifier frame_dark et frame_bright ne sont pas simultanés
             assert not (frame_dark = '1' and frame_bright = '1')
-                report "ERREUR: frame_dark et frame_bright simultanés !"
+                report "ERROR: frame_dark and frame_bright both high"
                 severity error;
         end if;
     end process p_check;
-
-    -- =========================================================
-    -- Monitor des statuts
-    -- =========================================================
-    p_monitor : process(clk)
-    begin
-        if rising_edge(clk) then
-            if frame_done = '1' then
-                report ">>> frame_done détecté !" severity note;
-            end if;
-            if frame_dark = '1' then
-                report ">>> Image classifiée : SOMBRE" severity note;
-            end if;
-            if frame_bright = '1' then
-                report ">>> Image classifiée : CLAIRE" severity note;
-            end if;
-        end if;
-    end process p_monitor;
 
 end architecture sim;

@@ -30,25 +30,38 @@ architecture rtl of unsharp_mask is
     signal out_g : unsigned(7 downto 0) := (others => '0');
     signal out_b : unsigned(7 downto 0) := (others => '0');
 
+    -- Pipeline registers for control signals (match 1-cycle data latency)
+    signal dly_valid : std_logic := '0';
+    signal dly_last  : std_logic := '0';
+    signal dly_user  : std_logic := '0';
+
 begin
 
     m_tdata  <= std_logic_vector(out_r) &
                 std_logic_vector(out_g) &
                 std_logic_vector(out_b);
 
-    m_tvalid <= s_tvalid;
-    m_tlast  <= s_tlast;
-    m_tuser  <= s_tuser;
+    m_tvalid <= dly_valid;
+    m_tlast  <= dly_last;
+    m_tuser  <= dly_user;
 
     process(clk, rst_n)
         variable r_i, g_i, b_i : integer;
     begin
         if rst_n = '0' then
-            out_r <= (others => '0');
-            out_g <= (others => '0');
-            out_b <= (others => '0');
+            out_r     <= (others => '0');
+            out_g     <= (others => '0');
+            out_b     <= (others => '0');
+            dly_valid <= '0';
+            dly_last  <= '0';
+            dly_user  <= '0';
 
         elsif rising_edge(clk) then
+            -- Register control signals to match data latency
+            dly_valid <= s_tvalid;
+            dly_last  <= s_tlast;
+            dly_user  <= s_tuser;
+
             if s_tvalid = '1' then
                 r_i := to_integer(unsigned(s_tdata(23 downto 16)));
                 g_i := to_integer(unsigned(s_tdata(15 downto 8)));

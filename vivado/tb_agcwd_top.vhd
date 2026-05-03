@@ -182,16 +182,17 @@ begin
             s_axis_tdata  <= pix_hex;
             s_axis_tvalid <= '1';
 
-            wait until rising_edge(clk);
-
-            s_axis_tvalid <= '0';
-            s_axis_tuser  <= '0';
-            s_axis_tlast  <= '0';
-
-            wait until rising_edge(clk);
+            -- Wait for handshake: DUT accepts pixel on rising edge
+            -- when both tvalid and tready are high
+            wait until rising_edge(clk) and s_axis_tready = '1';
 
             pix_id := pix_id + 1;
         end loop;
+
+        -- De-assert after all pixels are sent
+        s_axis_tvalid <= '0';
+        s_axis_tuser  <= '0';
+        s_axis_tlast  <= '0';
 
         report "All input pixels sent." severity note;
 

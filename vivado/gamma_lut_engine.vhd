@@ -1,6 +1,7 @@
 -- =============================================================
 -- File: gamma_lut_engine.vhd
--- Corrected standalone version (no external package needed)
+-- Stronger visual enhancement version
+-- This version increases brightness and contrast visibly.
 -- =============================================================
 
 library ieee;
@@ -20,134 +21,101 @@ entity gamma_lut_engine is
         is_dark     : in  std_logic;
         is_bright   : in  std_logic;
 
-        -- AXI Stream input
         s_tdata     : in  std_logic_vector(23 downto 0);
         s_tvalid    : in  std_logic;
         s_tlast     : in  std_logic;
         s_tuser     : in  std_logic;
 
-        -- AXI Stream output
         m_tdata     : out std_logic_vector(23 downto 0);
         m_tvalid    : out std_logic;
         m_tlast     : out std_logic;
         m_tuser     : out std_logic;
 
-        -- LUT export (flattened to avoid type problems)
+        -- Kept only for compatibility with agcwd_top
         lut_r_out   : out std_logic_vector(2047 downto 0);
         lut_g_out   : out std_logic_vector(2047 downto 0);
         lut_b_out   : out std_logic_vector(2047 downto 0);
         lut_valid   : out std_logic
     );
-end entity;
+end entity gamma_lut_engine;
 
 architecture rtl of gamma_lut_engine is
 
-    -- =========================================================
-    -- Internal LUT type (local, safe)
-    -- =========================================================
-    type lut_array is array (0 to 255) of unsigned(7 downto 0);
+    signal pix_r : unsigned(7 downto 0);
+    signal pix_g : unsigned(7 downto 0);
+    signal pix_b : unsigned(7 downto 0);
 
-    signal lut_r : lut_array;
-    signal lut_g : lut_array;
-    signal lut_b : lut_array;
-
-    -- Identity initialization
-    function lut_identity return lut_array is
-        variable tmp : lut_array;
-    begin
-        for i in 0 to 255 loop
-            tmp(i) := to_unsigned(i,8);
-        end loop;
-        return tmp;
-    end function;
-
-    -- initialize
-    signal init_done : std_logic := '0';
-
-    -- Pixel extraction
-    signal pix_r, pix_g, pix_b : unsigned(7 downto 0);
-
-    -- Output registers
-    signal out_r, out_g, out_b : unsigned(7 downto 0);
+    signal out_r : unsigned(7 downto 0) := (others => '0');
+    signal out_g : unsigned(7 downto 0) := (others => '0');
+    signal out_b : unsigned(7 downto 0) := (others => '0');
 
 begin
 
-    -- =========================================================
-    -- LUT Initialization (identity)
-    -- =========================================================
-    process(clk, rst_n)
-    begin
-        if rst_n = '0' then
-            lut_r <= lut_identity;
-            lut_g <= lut_identity;
-            lut_b <= lut_identity;
-            init_done <= '0';
-        elsif rising_edge(clk) then
-            init_done <= '1';
-        end if;
-    end process;
-
-    lut_valid <= init_done;
-
-    -- =========================================================
-    -- Pixel extraction
-    -- =========================================================
     pix_r <= unsigned(s_tdata(23 downto 16));
     pix_g <= unsigned(s_tdata(15 downto 8));
     pix_b <= unsigned(s_tdata(7 downto 0));
 
-    -- =========================================================
-    -- LUT application
-    -- =========================================================
+    -- Output stream
+    m_tdata  <= std_logic_vector(out_r) &
+                std_logic_vector(out_g) &
+                std_logic_vector(out_b);
+    m_tvalid <= s_tvalid;
+    m_tlast  <= s_tlast;
+    m_tuser  <= s_tuser;
+
+    -- Dummy LUT outputs for compatibility
+    lut_r_out <= (others => '0');
+    lut_g_out <= (others => '0');
+    lut_b_out <= (others => '0');
+    lut_valid <= '1';
+
     process(clk, rst_n)
-        variable vr, vg, vb : unsigned(7 downto 0);
+        variable r_i, g_i, b_i : integer;
     begin
         if rst_n = '0' then
             out_r <= (others => '0');
             out_g <= (others => '0');
             out_b <= (others => '0');
+
         elsif rising_edge(clk) then
             if s_tvalid = '1' then
+                r_i := to_integer(pix_r);
+                g_i := to_integer(pix_g);
+                b_i := to_integer(pix_b);
 
-                vr := lut_r(to_integer(pix_r));
-                vg := lut_g(to_integer(pix_g));
-                vb := lut_b(to_integer(pix_b));
+                -- Strong boost for dark images
+                if (is_dark = '1') or (frame_mean < to_unsigned(110, 8)) then
+                    r_i := (r_i * 14) / 10 + 20;
+                    g_i := (g_i * 14) / 10 + 20;
+                    b_i := (b_i * 14) / 10 + 20;
 
-                -- Dark blending 60% enhanced
-                if is_dark = '1' then
-                    out_r <= resize((vr*6 + pix_r*4)/10,8);
-                    out_g <= resize((vg*6 + pix_g*4)/10,8);
-                    out_b <= resize((vb*6 + pix_b*4)/10,8);
+                -- Mild compression for very bright images
+                elsif (is_bright = '1') or (frame_mean > to_unsigned(180, 8)) then
+                    r_i := (r_i * 95) / 100;
+                    g_i := (g_i * 95) / 100;
+                    b_i := (b_i * 95) / 100;
+
+                -- Normal contrast boost
                 else
-                    out_r <= vr;
-                    out_g <= vg;
-                    out_b <= vb;
+                    r_i := ((r_i - 128) * 12) / 10 + 128;
+                    g_i := ((g_i - 128) * 12) / 10 + 128;
+                    b_i := ((b_i - 128) * 12) / 10 + 128;
                 end if;
+
+                -- Clamp to [0,255]
+                if r_i < 0 then r_i := 0; end if;
+                if g_i < 0 then g_i := 0; end if;
+                if b_i < 0 then b_i := 0; end if;
+
+                if r_i > 255 then r_i := 255; end if;
+                if g_i > 255 then g_i := 255; end if;
+                if b_i > 255 then b_i := 255; end if;
+
+                out_r <= to_unsigned(r_i, 8);
+                out_g <= to_unsigned(g_i, 8);
+                out_b <= to_unsigned(b_i, 8);
             end if;
         end if;
     end process;
 
-    -- =========================================================
-    -- AXI output
-    -- =========================================================
-    m_tdata  <= std_logic_vector(out_r) &
-                std_logic_vector(out_g) &
-                std_logic_vector(out_b);
-
-    m_tvalid <= s_tvalid;
-    m_tlast  <= s_tlast;
-    m_tuser  <= s_tuser;
-
-    -- =========================================================
-    -- Export LUT flattened (256 x 8 = 2048 bits)
-    -- =========================================================
-    process(lut_r, lut_g, lut_b)
-    begin
-        for i in 0 to 255 loop
-            lut_r_out((i*8+7) downto i*8) <= std_logic_vector(lut_r(i));
-            lut_g_out((i*8+7) downto i*8) <= std_logic_vector(lut_g(i));
-            lut_b_out((i*8+7) downto i*8) <= std_logic_vector(lut_b(i));
-        end loop;
-    end process;
-
-end architecture;
+end architecture rtl;

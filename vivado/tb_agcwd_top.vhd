@@ -2,7 +2,6 @@
 -- File: tb_agcwd_hex.vhd
 -- Testbench for AGCWD using hex pixel files
 -- Input format: one 24-bit RGB pixel per line as RRGGBB
--- Example: 0A0B0C
 -- Compatible with Vivado 2018.2
 -- =============================================================
 
@@ -24,19 +23,18 @@ architecture sim of tb_agcwd_hex is
 
     -- =========================================================
     -- Image size
-    -- Change these values to match your test image
     -- =========================================================
-    constant IMG_W : integer := 8;
-    constant IMG_H : integer := 8;
+    constant IMG_W : integer := 960;
+    constant IMG_H : integer := 640;
 
     -- =========================================================
     -- File paths
-    -- Modify if your project path is different
     -- =========================================================
     constant INPUT_FILE  : string :=
-        "C:/Users/ACER/Downloads/Mehdi agcwd/AGCWD CLASSIQUE/input_image.hex";
+        "C:/Users/ACER/Downloads/Electronics project/input_image.hex";
+
     constant OUTPUT_FILE : string :=
-        "C:/Users/ACER/Downloads/Mehdi agcwd/AGCWD CLASSIQUE/output_image.hex";
+        "C:/Users/ACER/Downloads/Electronics project/output_image.hex";
 
     -- =========================================================
     -- DUT signals
@@ -56,9 +54,12 @@ architecture sim of tb_agcwd_hex is
     signal m_axis_tlast    : std_logic;
     signal m_axis_tuser    : std_logic;
 
-    signal enable_denoise  : std_logic := '1';
-    signal enable_sharpen  : std_logic := '1';
-    signal enable_balance  : std_logic := '1';
+    -- =========================================================
+    -- Controls
+    -- =========================================================
+    signal enable_denoise  : std_logic := '0';
+    signal enable_sharpen  : std_logic := '0';
+    signal enable_balance  : std_logic := '0';
 
     signal frame_done      : std_logic;
     signal frame_dark      : std_logic;
@@ -105,8 +106,6 @@ begin
 
     -- =========================================================
     -- DUT
-    -- IMPORTANT: agcwd_top has only these generics:
-    --   IMG_WIDTH, IMG_HEIGHT, ALPHA_VALUE
     -- =========================================================
     DUT : entity work.agcwd_top
         generic map (
@@ -166,14 +165,14 @@ begin
             readline(fin, L);
             hread(L, pix_hex);
 
-            -- First pixel of frame
+            -- tuser = '1' only for the first pixel of the frame
             if pix_id = 0 then
                 s_axis_tuser <= '1';
             else
                 s_axis_tuser <= '0';
             end if;
 
-            -- End of line
+            -- tlast = '1' only on the last pixel of each line
             if (pix_id mod IMG_W) = IMG_W - 1 then
                 s_axis_tlast <= '1';
             else
@@ -196,8 +195,8 @@ begin
 
         report "All input pixels sent." severity note;
 
-        -- Wait for pipeline to flush
-        wait for 5 us;
+        -- Give time for output pipeline
+        wait for 20 ms;
 
         report "End of simulation." severity note;
         wait;

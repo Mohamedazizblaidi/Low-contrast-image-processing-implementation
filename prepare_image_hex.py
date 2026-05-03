@@ -2,17 +2,20 @@ from pathlib import Path
 from PIL import Image
 
 # ============================================================
-# EDIT PATHS HERE
+# INPUT IMAGE PATH
 # ============================================================
-INPUT_IMAGE_PATH = r"C:/Users/ACER/Downloads/Mehdi agcwd/AGCWD CLASSIQUE/input.png"
-OUTPUT_HEX_PATH   = r"C:/Users/ACER/Downloads/Mehdi agcwd/AGCWD CLASSIQUE/input_image.hex"
+INPUT_IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\Inputs\Sunbeams.jpg"
 
-# Image size expected by the testbench
-WIDTH  = 8
-HEIGHT = 8
-# For full image use for example:
-# WIDTH  = 640
-# HEIGHT = 480
+# ============================================================
+# OUTPUT HEX PATH
+# ============================================================
+OUTPUT_HEX_PATH = r"C:\Users\ACER\Downloads\Electronics project\input_image.hex"
+
+# ============================================================
+# SIZE USED FOR VIVADO TEST
+# ============================================================
+TARGET_W = 960
+TARGET_H = 640
 
 def main():
     input_path = Path(INPUT_IMAGE_PATH)
@@ -21,8 +24,10 @@ def main():
     if not input_path.exists():
         raise FileNotFoundError(f"Input image not found: {input_path}")
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     img = Image.open(input_path).convert("RGB")
-    img = img.resize((WIDTH, HEIGHT), Image.BILINEAR)
+    img = img.resize((TARGET_W, TARGET_H), Image.LANCZOS)
 
     pixels = list(img.getdata())
 
@@ -30,9 +35,11 @@ def main():
         for r, g, b in pixels:
             f.write(f"{r:02X}{g:02X}{b:02X}\n")
 
-    print(f"Done: {output_path}")
-    print(f"Image size: {WIDTH}x{HEIGHT}")
-    print(f"Pixels written: {len(pixels)}")
+    print("Done!")
+    print(f"Input image : {input_path}")
+    print(f"Output hex  : {output_path}")
+    print(f"Size        : {TARGET_W} x {TARGET_H}")
+    print(f"Pixels      : {len(pixels)}")
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ agcwd_dir = r"C:\Users\ACER\Downloads\Electronics project\output\agcwd"
 
 image_pairs = [
     ("1.png", "Hardware results/1", "output/agcwd/1"),
-    ("3.png", "Hardware results/3", "output/agcwd/3"),
+    ("3.png", "Hardware results/3", "output/agcwd/3"), 
 ]
 
 for img_name, hw_path, agcwd_path in image_pairs:

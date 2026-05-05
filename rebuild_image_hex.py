@@ -12,8 +12,8 @@ INPUT_HEX_PATH = r"C:/Users/ACER/Downloads/Electronics project/output_image.hex"
 OUTPUT_IMAGE_PATH = r"C:/Users/ACER/Downloads/Electronics project/result.png"
 
 # Must match prepare_image_hex.py and tb_agcwd_hex.vhd
-WIDTH = 960
-HEIGHT = 640
+WIDTH = 400
+HEIGHT = 267
 
 def main():
     input_path = Path(INPUT_HEX_PATH)

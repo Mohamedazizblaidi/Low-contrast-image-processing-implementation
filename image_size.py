@@ -4,7 +4,7 @@ from PIL import Image
 # ============================================================
 # EDIT PATH HERE
 # ============================================================
-IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\Inputs\Black Jar.jpg"
+IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\image.png"
 
 def main():
     path = Path(IMAGE_PATH)

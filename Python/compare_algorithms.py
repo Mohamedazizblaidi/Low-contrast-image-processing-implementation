@@ -13,7 +13,7 @@ from clahe import apply_clahe_rgb
 
 def main():
     # Default image path
-    image_path = r"C:\Users\ACER\Downloads\Electronics project\Inputs\emma-oQjRw-0hx20-unsplash.jpg"
+    image_path = r"C:\Users\ACER\Downloads\Electronics project\image.png"
     
     # Use command line argument if provided
     if len(sys.argv) > 1:

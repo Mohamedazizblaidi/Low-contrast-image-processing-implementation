@@ -62,7 +62,7 @@ Synthesized for high-performance FPGA targets:
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Software Setup
 1. Install dependencies:

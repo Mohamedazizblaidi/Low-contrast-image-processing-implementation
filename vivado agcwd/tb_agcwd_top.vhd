@@ -24,8 +24,8 @@ architecture sim of tb_agcwd_hex is
     -- =========================================================
     -- Image size
     -- =========================================================
-    constant IMG_W : integer := 400;
-    constant IMG_H : integer := 267;
+    constant IMG_W : integer := 512;
+    constant IMG_H : integer := 512;
 
     -- =========================================================
     -- File paths

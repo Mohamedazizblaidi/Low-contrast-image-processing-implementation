@@ -131,7 +131,7 @@ begin
 
                     -- gamma = 1.0 - cdf_norm, clampé à [0.01, 1.0]
                     if v_cdf_norm >= x"FFCC" then  -- 0.99 en Q0.16
-                        v_gamma := to_unsigned(164, 16); -- 0.0025 ≈ 1/400
+                        v_gamma := to_unsigned(128, 16); -- 0.00195 ≈ 1/512
                     else
                         v_gamma := x"FFFF" - v_cdf_norm;
                     end if;

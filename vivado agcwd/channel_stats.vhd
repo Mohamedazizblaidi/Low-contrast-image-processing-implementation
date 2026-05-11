@@ -28,9 +28,9 @@ end entity channel_stats;
 architecture rtl of channel_stats is
 
     -- Seuils pour classification
-    constant DARK_THRESHOLD   : unsigned(7 downto 0) := to_unsigned(40,  8);
-    constant BRIGHT_THRESHOLD : unsigned(7 downto 0) := to_unsigned(250, 8);
-    constant STD_THRESHOLD    : unsigned(7 downto 0) := to_unsigned(3,   8);
+    constant DARK_THRESHOLD   : unsigned(7 downto 0) := to_unsigned(100, 8);
+    constant BRIGHT_THRESHOLD : unsigned(7 downto 0) := to_unsigned(180, 8);
+    constant STD_THRESHOLD    : unsigned(7 downto 0) := to_unsigned(50,   8);
 
     -- =========================================================
     -- Fonction : racine carree entiere (Newton-Raphson)

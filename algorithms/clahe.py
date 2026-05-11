@@ -309,7 +309,7 @@ def main() -> None:
     import sys
 
     # Default path
-    image_path = r"C:\Users\ACER\Downloads\Electronics project\Mri image.png"
+    image_path = r"C:\Users\ACER\Downloads\Electronics project\CT scan images\Test\cp026_96.png"
 
     # Use command line argument if provided
     if len(sys.argv) > 1:

@@ -68,6 +68,39 @@ architecture rtl of pdf_weighted is
     -- Résultat weighted_pdf avant normalisation
     signal wpdf_cur      : unsigned(15 downto 0);
 
+    -- =========================================================
+    -- Fonction : Racine carrée approchée pour Q0.16
+    -- Entrée  : val (Q0.16)
+    -- Sortie  : sqrt(val) (Q0.16)
+    -- =========================================================
+    function approx_sqrt_q16 (val : unsigned(15 downto 0))
+        return unsigned is
+        variable x     : unsigned(31 downto 0);
+        variable x_new : unsigned(31 downto 0);
+        variable v32   : unsigned(31 downto 0);
+        variable tmp   : unsigned(63 downto 0);
+    begin
+        if val = 0 then
+            return to_unsigned(0, 16);
+        end if;
+
+        -- On veut sqrt(val/2^16). 
+        -- En virgule fixe: result = sqrt(val * 2^16)
+        v32 := shift_left(resize(val, 32), 16);
+        
+        -- Estimation initiale
+        x := shift_right(v32, 10) + 1;
+
+        -- 6 itérations Newton-Raphson
+        for i in 0 to 5 loop
+            tmp   := v32 / x;
+            x_new := shift_right(x + tmp(31 downto 0), 1);
+            x     := x_new;
+        end loop;
+
+        return x(15 downto 0);
+    end function approx_sqrt_q16;
+
 begin
 
     -- =========================================================

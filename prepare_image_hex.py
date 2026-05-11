@@ -4,7 +4,7 @@ from PIL import Image
 # ============================================================
 # INPUT IMAGE PATH
 # ============================================================
-INPUT_IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\image.png"
+INPUT_IMAGE_PATH = r"C:\Users\ACER\Downloads\Electronics project\CT scan images\Test\cp026_96.png"
 
 # ============================================================
 # OUTPUT HEX PATH
@@ -14,8 +14,8 @@ OUTPUT_HEX_PATH = r"C:\Users\ACER\Downloads\Electronics project\input_image.hex"
 # ============================================================
 # SIZE USED FOR VIVADO TEST
 # ============================================================
-TARGET_W = 400
-TARGET_H = 267
+TARGET_W = 512
+TARGET_H = 512
 
 def main():
     input_path = Path(INPUT_IMAGE_PATH)
